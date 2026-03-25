@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>chocotap — craft chocolate stamp rally</title>
+  <meta name="description" content="日本全国のクラフトチョコレートショップを巡る、やさしいスタンプラリーアプリ">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Splash -->
+  <div id="splash" class="splash">
+    <div class="splash-content">
+      <div class="splash-logo">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="12" width="40" height="24" rx="4" fill="#5c3d2e"/>
+          <rect x="4" y="12" width="40" height="12" rx="4" fill="#8b6244"/>
+          <line x1="18" y1="12" x2="18" y2="36" stroke="#4a3020" stroke-width="1.5" opacity="0.3"/>
+          <line x1="30" y1="12" x2="30" y2="36" stroke="#4a3020" stroke-width="1.5" opacity="0.3"/>
+          <rect x="6" y="14" width="36" height="3" rx="1" fill="#a67c5b" opacity="0.4"/>
+        </svg>
+      </div>
+      <h1 class="splash-title">chocotap</h1>
+      <p class="splash-sub">craft chocolate stamp rally</p>
+      <div class="splash-loader"><div class="loader-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div id="app" class="app hidden">
+    <header class="app-header">
+      <div class="header-logo">
+        <div class="header-logo-icon">
+          <svg viewBox="0 0 48 48" fill="none"><rect x="4" y="12" width="40" height="24" rx="4" fill="#5c3d2e"/><rect x="4" y="12" width="40" height="12" rx="4" fill="#8b6244"/><line x1="18" y1="12" x2="18" y2="36" stroke="#4a3020" stroke-width="1.5" opacity="0.3"/><line x1="30" y1="12" x2="30" y2="36" stroke="#4a3020" stroke-width="1.5" opacity="0.3"/></svg>
+        </div>
+        chocotap
+      </div>
+      <div class="header-stats">
+        <span id="checkin-count" class="stat-badge">0</span>
+        <span class="stat-label">/ <span id="total-shops">0</span></span>
+      </div>
+    </header>
+
+    <main class="tab-content">
+      <!-- MAP -->
+      <section id="tab-map" class="tab-pane active">
+        <div class="map-hero">
+          <img src="assets/hero.png" alt="">
+          <div class="map-hero-overlay">
+            <div class="map-hero-title">Craft Chocolate Map</div>
+            <div class="map-hero-subtitle">日本全国のクラフトチョコを巡ろう</div>
+          </div>
+        </div>
+
+        <div class="map-container">
+          <div class="map-legend">
+            <div class="legend-item"><span class="legend-swatch white"></span>未訪問</div>
+            <div class="legend-item"><span class="legend-swatch milk"></span>訪問中</div>
+            <div class="legend-item"><span class="legend-swatch bitter"></span>制覇</div>
+          </div>
+          <div id="japan-map" class="japan-map-wrapper"></div>
+          <div id="shop-pins" class="shop-pins-overlay"></div>
+        </div>
+
+        <div class="shop-list-header">
+          <h2 class="section-title">Shops</h2>
+        </div>
+        <p class="section-sub">タップしてチェックイン</p>
+        <div id="shop-filters" class="shop-filter-pills">
+          <button class="filter-pill active" data-filter="all">All</button>
+          <button class="filter-pill" data-filter="not-visited">行きたい</button>
+          <button class="filter-pill" data-filter="visited">行った</button>
+        </div>
+        <div id="shop-cards" class="shop-cards"></div>
+
+        <!-- Modal -->
+        <div id="shop-modal" class="modal hidden">
+          <div class="modal-backdrop"></div>
+          <div class="modal-content">
+            <div class="modal-handle"></div>
+            <button class="modal-close" id="modal-close">✕</button>
+            <h3 id="modal-shop-name" class="modal-title"></h3>
+            <p id="modal-shop-pref" class="modal-pref"></p>
+            <div id="modal-status" class="modal-status"></div>
+            <div class="modal-checkin-area">
+              <label class="checkin-upload-label" for="photo-upload">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M3 9l3-3h4l2 3h5l3 0"/></svg>
+                写真でチェックイン
+              </label>
+              <input type="file" id="photo-upload" accept="image/*" class="hidden-input">
+              <div id="photo-preview" class="photo-preview hidden">
+                <img id="preview-img" src="" alt="">
+              </div>
+              <button id="confirm-checkin" class="btn btn-primary checkin-btn hidden">チェックイン確定</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLLECTION -->
+      <section id="tab-collection" class="tab-pane">
+        <div class="collection-header">
+          <div>
+            <h2 class="section-title">Collection</h2>
+            <p class="section-sub">各地のショップを制覇してバッジを集めよう</p>
+          </div>
+          <p class="collection-progress"><span id="badge-count">0</span> / <span id="badge-total">0</span></p>
+        </div>
+        <div id="badge-grid" class="badge-grid"></div>
+      </section>
+
+      <!-- GALLERY -->
+      <section id="tab-gallery" class="tab-pane">
+        <h2 class="section-title">Gallery</h2>
+        <p class="section-sub">テキストなし、スタンプだけのやさしい世界</p>
+        <div id="gallery-grid" class="gallery-grid"></div>
+        <div id="gallery-empty" class="empty-state">
+          <div class="empty-icon">
+            <svg viewBox="0 0 48 48" fill="none" stroke="#b5aa9e" stroke-width="1.5" width="48" height="48"><rect x="6" y="10" width="36" height="28" rx="3"/><circle cx="24" cy="24" r="6"/><path d="M6 30l8-8 6 6 8-8 14 14"/></svg>
+          </div>
+          <p>まだ投稿がありません<br>チェックインして写真を共有しよう</p>
+        </div>
+      </section>
+
+      <!-- ADMIN -->
+      <section id="tab-admin" class="tab-pane">
+        <h2 class="section-title">Settings</h2>
+        <p class="section-sub">ショップデータの追加・管理</p>
+
+        <div class="admin-section">
+          <h3>Google Maps API</h3>
+          <p class="admin-desc">APIキーを設定すると、各ショップの写真・評価・営業情報を自動取得します。</p>
+          <input type="text" id="api-key-input" class="import-textarea" style="min-height:auto;height:40px;font-family:monospace" placeholder="AIza...">
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="save-api-key" class="btn btn-primary" style="flex:1">Save Key</button>
+            <button id="fetch-photos-btn" class="btn btn-soft" style="flex:1">Fetch Photos</button>
+          </div>
+          <div id="fetch-progress" class="import-result hidden" style="margin-top:8px"></div>
+        </div>
+
+        <div class="admin-section">
+          <h3>抽出スクリプト</h3>
+          <p class="admin-desc">PCでGoogleマップのリストを開き、開発者ツール(Console)に貼り付けてください。</p>
+          <div class="script-box">
+            <pre id="extract-script" class="code-block"></pre>
+            <button id="copy-script" class="btn btn-soft copy-btn">Copy</button>
+          </div>
+        </div>
+
+        <div class="admin-section">
+          <h3>データインポート</h3>
+          <p class="admin-desc">抽出したJSONを貼り付けて反映してください。</p>
+          <textarea id="import-json" class="import-textarea" placeholder='[{"name":"ショップ名","lat":35.68,"lng":139.76,"prefecture":"東京都"}]'></textarea>
+          <button id="import-btn" class="btn btn-primary import-btn">Import</button>
+          <div id="import-result" class="import-result hidden"></div>
+        </div>
+
+        <div class="admin-section">
+          <h3>リセット</h3>
+          <p class="admin-desc">すべての進捗をリセットします。</p>
+          <button id="reset-btn" class="btn btn-danger reset-btn">Reset All</button>
+        </div>
+
+        <div class="admin-section">
+          <h3>Statistics</h3>
+          <p>Shops: <strong id="admin-shop-count">0</strong></p>
+          <p>Check-ins: <strong id="admin-checkin-count">0</strong></p>
+          <p>Gallery: <strong id="admin-gallery-count">0</strong></p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Nav -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-tab="map">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M3 7l6-3 6 3 6-3v14l-6 3-6-3-6 3z"/><path d="M9 4v14M15 7v14"/></svg></span>
+        <span class="nav-label">Map</span>
+      </button>
+      <button class="nav-btn" data-tab="collection">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg></span>
+        <span class="nav-label">Collection</span>
+      </button>
+      <button class="nav-btn" data-tab="gallery">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg></span>
+        <span class="nav-label">Gallery</span>
+      </button>
+      <button class="nav-btn" data-tab="admin">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></span>
+        <span class="nav-label">Settings</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Celebration -->
+  <div id="celebration" class="celebration hidden">
+    <div class="celebration-content">
+      <div class="celebration-badge" id="celebration-badge"></div>
+      <h2 class="celebration-title">Check-in Complete</h2>
+      <p id="celebration-text" class="celebration-text"></p>
+      <button id="celebration-close" class="btn btn-primary">OK</button>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/japanmap_data.js"></script>
+  <script src="js/japanmap.js"></script>
+  <script src="js/places.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

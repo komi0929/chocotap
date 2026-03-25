@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+fetch_shops.js
+fix_data.js
+convert_geojson.js
+package-lock.json
