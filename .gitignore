@@ -38,3 +38,5 @@ next-env.d.ts
 
 # old vanilla files
 _old/
+
+.vercel

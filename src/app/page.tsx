@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { SHOPS, type Shop } from "@/lib/shops";
-import { getCachedPlace, getPhotoUrl, fetchAllShops } from "@/lib/places";
+import { getCachedPlace, getPhotoUrl, loadPlacesCache } from "@/lib/places";
 import * as store from "@/lib/store";
 import Splash from "@/components/Splash";
 import AuthPrompt from "@/components/AuthPrompt";
+import JapanMap from "@/components/JapanMap";
 import {
   MapIcon, CollectionIcon, GalleryIcon, SettingsIcon,
   StarIcon, LocationIcon, ExternalLinkIcon, CloseIcon,
@@ -193,19 +194,6 @@ function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
 
 /* ==================== SETTINGS TAB ==================== */
 function SettingsTab() {
-  const [fetchProgress, setFetchProgress] = useState("");
-  const [fetching, setFetching] = useState(false);
-
-  const handleFetch = async () => {
-    setFetching(true);
-    setFetchProgress("開始...");
-    await fetchAllShops(SHOPS, (done, total) => {
-      setFetchProgress(`${done} / ${total} 取得中...`);
-    });
-    setFetchProgress("✅ 完了！ページをリロードしてください");
-    setFetching(false);
-  };
-
   return (
     <div className="space-y-4 animate-fade-up">
       {/* Profile section */}
@@ -245,32 +233,18 @@ function SettingsTab() {
         </div>
       </div>
 
-      {/* Data management */}
-      <div className="glass-card p-5">
-        <h3 className="font-serif text-base font-semibold text-choco mb-2">写真データ取得</h3>
-        <p className="text-xs text-text-dim mb-3">全ショップの写真・評価を一括取得します。</p>
-        <button
-          onClick={handleFetch}
-          disabled={fetching}
-          className="btn-primary text-sm disabled:opacity-50"
-        >
-          {fetching ? "取得中..." : "📸 一括取得"}
-        </button>
-        {fetchProgress && <p className="text-xs text-text-dim mt-2">{fetchProgress}</p>}
-      </div>
-
       {/* Reset */}
       <div className="glass-card p-5">
         <button
           onClick={() => {
-            if (confirm("全データをリセットしますか？")) {
+            if (confirm("チェックイン記録をリセットしますか？")) {
               store.resetAll();
               location.reload();
             }
           }}
           className="w-full py-2.5 rounded-xl text-sm text-red-400 hover:text-red-500 hover:bg-red-50 transition"
         >
-          全データをリセット
+          チェックイン記録をリセット
         </button>
       </div>
     </div>
@@ -285,9 +259,15 @@ export default function Home() {
   const [filter, setFilter] = useState<Filter>("all");
   const [showAuth, setShowAuth] = useState(false);
   const [pendingCheckin, setPendingCheckin] = useState<Shop | null>(null);
+  const [selectedPrefecture, setSelectedPrefecture] = useState<string | null>(null);
   const [, forceUpdate] = useState(0);
 
   const refresh = useCallback(() => forceUpdate((n) => n + 1), []);
+
+  // Load static places cache on mount
+  useEffect(() => {
+    loadPlacesCache().then(() => refresh());
+  }, [refresh]);
 
   const handleCheckin = (shop: Shop) => {
     const isLoggedIn = false; // TODO: integrate Supabase auth
@@ -313,6 +293,7 @@ export default function Home() {
   };
 
   const filteredShops = SHOPS.filter((s) => {
+    if (selectedPrefecture && s.prefecture !== selectedPrefecture) return false;
     if (filter === "visited") return store.isVisited(s.name);
     if (filter === "not-visited") return !store.isVisited(s.name);
     return true;
@@ -369,8 +350,16 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Japan Map */}
+            <JapanMap
+              selectedPrefecture={selectedPrefecture}
+              onPrefectureClick={(pref) => {
+                setSelectedPrefecture(selectedPrefecture === pref ? null : pref);
+              }}
+            />
+
             {/* Filter */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {([
                 { id: "all" as Filter, label: `All (${SHOPS.length})` },
                 { id: "not-visited" as Filter, label: "行きたい" },
@@ -384,6 +373,14 @@ export default function Home() {
                   {label}
                 </button>
               ))}
+              {selectedPrefecture && (
+                <button
+                  onClick={() => setSelectedPrefecture(null)}
+                  className="pill-active flex items-center gap-1"
+                >
+                  {selectedPrefecture} ✕
+                </button>
+              )}
             </div>
 
             {/* Shop grid by prefecture */}
