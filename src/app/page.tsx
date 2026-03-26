@@ -275,6 +275,7 @@ export default function Home() {
 
     if (!isLoggedIn && !isGuest && !store.isVisited(shop.name)) {
       setPendingCheckin(shop);
+      setSelectedShop(null); // close shop modal first
       setShowAuth(true);
       return;
     }

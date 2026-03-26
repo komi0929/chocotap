@@ -10,7 +10,7 @@ interface AuthPromptProps {
 export default function AuthPrompt({ onClose, onContinueAsGuest }: AuthPromptProps) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="modal-backdrop" onClick={onClose} />
+      <div className="fixed inset-0 bg-choco/50" onClick={onClose} />
 
       <div className="relative glass-card p-6 w-full max-w-sm animate-slide-up z-10">
         <button onClick={onClose} className="absolute top-4 right-4 text-text-dim hover:text-choco transition">
