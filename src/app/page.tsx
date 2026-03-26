@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { SHOPS, type Shop } from "@/lib/shops";
 import { getCachedPlace, getPhotoUrl, loadPlacesCache } from "@/lib/places";
 import * as store from "@/lib/store";
@@ -11,11 +11,13 @@ import {
   MapIcon, CollectionIcon, GalleryIcon, SettingsIcon,
   StarIcon, LocationIcon, ExternalLinkIcon, CloseIcon,
   CheckIcon, ChocolateIcon, UserIcon,
+  SearchIcon, SortIcon, ShopListIcon,
 } from "@/components/Icons";
 import Image from "next/image";
 
-type Tab = "map" | "collection" | "gallery" | "settings";
+type Tab = "map" | "shops" | "collection" | "gallery" | "settings";
 type Filter = "all" | "not-visited" | "visited";
+type SortBy = "name" | "rating" | "prefecture";
 
 /* ==================== STAR RATING ==================== */
 function Stars({ rating, count }: { rating: number | null; count: number }) {
@@ -163,10 +165,219 @@ function ShopModal({
   );
 }
 
+/* ==================== SHOPS TAB ==================== */
+function ShopsTab({ onShopClick }: { onShopClick: (shop: Shop) => void }) {
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortBy>("prefecture");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [prefFilter, setPrefFilter] = useState<string | null>(null);
+  const [visitFilter, setVisitFilter] = useState<Filter>("all");
+
+  // Get unique prefectures
+  const prefectures = useMemo(() => {
+    const set = new Set(SHOPS.map((s) => s.prefecture));
+    return Array.from(set).sort();
+  }, []);
+
+  // Filter and sort shops
+  const results = useMemo(() => {
+    let list = [...SHOPS];
+
+    // Text search
+    if (query) {
+      const q = query.toLowerCase();
+      list = list.filter(
+        (s) => s.name.toLowerCase().includes(q) || s.prefecture.includes(q)
+      );
+    }
+
+    // Prefecture filter
+    if (prefFilter) {
+      list = list.filter((s) => s.prefecture === prefFilter);
+    }
+
+    // Visit filter
+    if (visitFilter === "visited") list = list.filter((s) => store.isVisited(s.name));
+    if (visitFilter === "not-visited") list = list.filter((s) => !store.isVisited(s.name));
+
+    // Sort
+    if (sortBy === "name") {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === "rating") {
+      list.sort((a, b) => {
+        const ra = getCachedPlace(a.name)?.rating ?? 0;
+        const rb = getCachedPlace(b.name)?.rating ?? 0;
+        return rb - ra;
+      });
+    } else {
+      // prefecture (default)
+      list.sort((a, b) => a.prefecture.localeCompare(b.prefecture) || a.name.localeCompare(b.name));
+    }
+
+    return list;
+  }, [query, prefFilter, visitFilter, sortBy]);
+
+  const sortLabels: Record<SortBy, string> = {
+    name: "名前順",
+    rating: "評価順",
+    prefecture: "都道府県順",
+  };
+
+  return (
+    <div className="animate-fade-up space-y-3">
+      {/* Search bar */}
+      <div className="glass-card flex items-center gap-2 px-3 py-2.5">
+        <SearchIcon className="w-4 h-4 text-text-dim flex-shrink-0" />
+        <input
+          type="text"
+          placeholder="ショップ名・都道府県で検索..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="flex-1 bg-transparent text-sm text-choco placeholder:text-text-dim/60 outline-none"
+        />
+        {query && (
+          <button onClick={() => setQuery("")} className="text-text-dim hover:text-choco">
+            <CloseIcon className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Filter row */}
+      <div className="flex items-center gap-2">
+        {/* Visit filter pills */}
+        {([
+          { id: "all" as Filter, label: `全て (${SHOPS.length})` },
+          { id: "visited" as Filter, label: `行った (${store.getVisitedCount()})` },
+          { id: "not-visited" as Filter, label: "未訪問" },
+        ]).map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setVisitFilter(id)}
+            className={visitFilter === id ? "pill-active" : "pill-inactive"}
+          >
+            {label}
+          </button>
+        ))}
+
+        {/* Sort button */}
+        <div className="relative ml-auto">
+          <button
+            onClick={() => setShowSortMenu(!showSortMenu)}
+            className="pill-inactive flex items-center gap-1"
+          >
+            <SortIcon className="w-3.5 h-3.5" />
+            {sortLabels[sortBy]}
+          </button>
+          {showSortMenu && (
+            <div className="absolute right-0 top-full mt-1 glass-card py-1 min-w-[120px] shadow-lg z-20 animate-fade-in">
+              {(["prefecture", "name", "rating"] as SortBy[]).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => { setSortBy(s); setShowSortMenu(false); }}
+                  className={`w-full px-3 py-2 text-left text-xs transition ${
+                    sortBy === s ? "text-choco font-semibold bg-cream-deep/30" : "text-text-dim hover:text-choco hover:bg-cream-deep/20"
+                  }`}
+                >
+                  {sortLabels[s]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Prefecture filter (horizontal scroll) */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <button
+          onClick={() => setPrefFilter(null)}
+          className={!prefFilter ? "pill-active text-[10px]" : "pill-inactive text-[10px]"}
+        >
+          全地域
+        </button>
+        {prefectures.map((p) => (
+          <button
+            key={p}
+            onClick={() => setPrefFilter(prefFilter === p ? null : p)}
+            className={prefFilter === p ? "pill-active text-[10px] whitespace-nowrap" : "pill-inactive text-[10px] whitespace-nowrap"}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      {/* Results count */}
+      <p className="text-[11px] text-text-dim px-1">
+        {results.length} 件表示
+        {prefFilter && <span> — {prefFilter}</span>}
+      </p>
+
+      {/* Shop list */}
+      <div className="space-y-2">
+        {results.map((shop) => {
+          const visited = store.isVisited(shop.name);
+          const place = getCachedPlace(shop.name);
+          const photoUrl = place?.photos?.[0] ? getPhotoUrl(place.photos[0], 200) : "";
+
+          return (
+            <button
+              key={shop.name}
+              onClick={() => onShopClick(shop)}
+              className="glass-card-hover w-full flex items-center gap-3 p-2.5 text-left"
+            >
+              {/* Thumbnail */}
+              <div className="w-14 h-14 rounded-xl overflow-hidden bg-cream-deep flex-shrink-0">
+                {photoUrl ? (
+                  <img src={photoUrl} alt={shop.name} className="w-full h-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ChocolateIcon className="w-6 h-6 opacity-15" />
+                  </div>
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-[13px] font-medium text-choco truncate">{shop.name}</h3>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <LocationIcon className="w-3 h-3 text-text-dim flex-shrink-0" />
+                  <span className="text-[11px] text-text-dim">{shop.prefecture}</span>
+                </div>
+                {place?.rating && (
+                  <div className="flex items-center gap-0.5 mt-0.5">
+                    <StarIcon className="w-3 h-3 star-filled" filled />
+                    <span className="text-[10px] text-text-dim">
+                      {place.rating.toFixed(1)} ({place.ratingCount})
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Visit badge */}
+              {visited && (
+                <div className="flex-shrink-0">
+                  <CheckIcon className="w-5 h-5 text-choco-milk" />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {results.length === 0 && (
+        <div className="text-center py-12">
+          <ChocolateIcon className="w-10 h-10 mx-auto opacity-20 mb-3" />
+          <p className="text-sm text-text-dim">該当するショップが見つかりません</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ==================== BOTTOM NAV ==================== */
 function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   const items: { id: Tab; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "map", label: "Map", Icon: MapIcon },
+    { id: "shops", label: "Shops", Icon: ShopListIcon },
     { id: "collection", label: "Collection", Icon: CollectionIcon },
     { id: "gallery", label: "Gallery", Icon: GalleryIcon },
     { id: "settings", label: "Settings", Icon: SettingsIcon },
@@ -399,6 +610,14 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ===== SHOPS TAB ===== */}
+        {tab === "shops" && (
+          <div className="animate-fade-up">
+            <h2 className="font-serif text-xl font-semibold text-choco mb-4">Shops</h2>
+            <ShopsTab onShopClick={(shop) => setSelectedShop(shop)} />
           </div>
         )}
 

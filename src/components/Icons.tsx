@@ -108,3 +108,31 @@ export function GoogleIcon({ className = "w-5 h-5" }: { className?: string }) {
     </svg>
   );
 }
+
+export function SearchIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function SortIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <path d="M3 6h18M3 12h12M3 18h6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function ShopListIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <path d="M3 3h18v5H3z" />
+      <path d="M3 8l2 2v11h14V10l2-2" />
+      <path d="M9 21v-6h6v6" />
+      <path d="M7 8l2-5M12 8V3M17 8l-2-5" />
+    </svg>
+  );
+}
