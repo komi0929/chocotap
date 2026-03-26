@@ -12,6 +12,7 @@ import {
   StarIcon, LocationIcon, ExternalLinkIcon, CloseIcon,
   CheckIcon, ChocolateIcon, UserIcon,
   SearchIcon, SortIcon, ShopListIcon,
+  CameraIcon, ImagePlusIcon, TrashIcon,
 } from "@/components/Icons";
 import Image from "next/image";
 
@@ -81,14 +82,53 @@ function ShopModal({
   shop,
   onClose,
   onCheckin,
+  onRefresh,
 }: {
   shop: Shop;
   onClose: () => void;
   onCheckin: (shop: Shop) => void;
+  onRefresh: () => void;
 }) {
   const visited = store.isVisited(shop.name);
+  const checkin = store.getCheckin(shop.name);
   const place = getCachedPlace(shop.name);
   const photoUrl = place?.photos?.[0] ? getPhotoUrl(place.photos[0], 800) : "";
+
+  const handlePhotoUpload = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (!files) return;
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (reader.result) {
+            // Resize for storage efficiency
+            const img = document.createElement("img");
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              const MAX = 800;
+              let w = img.width, h = img.height;
+              if (w > MAX) { h = (h * MAX) / w; w = MAX; }
+              if (h > MAX) { w = (w * MAX) / h; h = MAX; }
+              canvas.width = w;
+              canvas.height = h;
+              canvas.getContext("2d")?.drawImage(img, 0, 0, w, h);
+              const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+              store.addPhoto(shop.name, dataUrl);
+              onRefresh();
+            };
+            img.src = reader.result as string;
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+    input.click();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
@@ -106,7 +146,7 @@ function ShopModal({
         </button>
 
         <div className="px-5 pb-8">
-          {/* Photo */}
+          {/* Shop photo */}
           {photoUrl && (
             <div className="rounded-2xl overflow-hidden mb-4 shadow-sm">
               <img src={photoUrl} alt={shop.name} className="w-full object-cover max-h-64" />
@@ -159,6 +199,50 @@ function ShopModal({
               </span>
             )}
           </button>
+
+          {/* User photos section (only when checked in) */}
+          {visited && checkin && (
+            <div className="mt-6 border-t border-cream-deep pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-choco">マイフォト</h3>
+                <button
+                  onClick={handlePhotoUpload}
+                  className="flex items-center gap-1 text-xs text-choco-warm bg-cream-deep/50 px-3 py-1.5 rounded-full hover:bg-cream-deep transition"
+                >
+                  <ImagePlusIcon className="w-3.5 h-3.5" />
+                  写真を追加
+                </button>
+              </div>
+
+              {checkin.photos.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {checkin.photos.map((photo) => (
+                    <div key={photo.id} className="relative group rounded-xl overflow-hidden aspect-square">
+                      <img src={photo.dataUrl} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          store.removePhoto(shop.name, photo.id);
+                          onRefresh();
+                        }}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500/80 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                      >
+                        <TrashIcon className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <button
+                  onClick={handlePhotoUpload}
+                  className="w-full py-8 rounded-2xl border-2 border-dashed border-cream-deep text-text-dim hover:border-choco-milk hover:text-choco transition flex flex-col items-center gap-2"
+                >
+                  <CameraIcon className="w-8 h-8 opacity-40" />
+                  <span className="text-xs">写真を追加して思い出を残そう</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -491,14 +575,14 @@ export default function Home() {
       return;
     }
 
-    store.toggleVisit(shop.name);
+    store.toggleVisit(shop.name, shop.prefecture);
     refresh();
   };
 
   const handleGuestContinue = () => {
     setShowAuth(false);
     if (pendingCheckin) {
-      store.toggleVisit(pendingCheckin.name);
+      store.toggleVisit(pendingCheckin.name, pendingCheckin.prefecture);
       setPendingCheckin(null);
       refresh();
     }
@@ -708,47 +792,68 @@ export default function Home() {
         )}
 
         {/* ===== GALLERY TAB ===== */}
-        {tab === "gallery" && (
-          <div className="animate-fade-up space-y-4">
-            <div>
-              <h2 className="font-serif text-xl font-semibold text-choco mb-1">Gallery</h2>
-              <p className="text-xs text-text-dim">全国のクラフトチョコショップ</p>
-            </div>
+        {tab === "gallery" && (() => {
+          const allPhotos = store.getAllPhotos();
+          const prefectures = [...new Set(allPhotos.map((p) => p.prefecture).filter(Boolean))];
+          return (
+            <div className="animate-fade-up space-y-4">
+              <div>
+                <h2 className="font-serif text-xl font-semibold text-choco mb-1">Gallery</h2>
+                <p className="text-xs text-text-dim">
+                  あなたのチョコレート旅の記録 — {allPhotos.length} 枚
+                </p>
+              </div>
 
-            {/* Photo grid from places cache */}
-            <div className="grid grid-cols-3 gap-1.5">
-              {SHOPS.map((shop) => {
-                const place = getCachedPlace(shop.name);
-                const photoUrl = place?.photos?.[0] ? getPhotoUrl(place.photos[0], 200) : "";
-                if (!photoUrl) return null;
-
-                return (
+              {allPhotos.length > 0 ? (
+                <>
+                  {/* Photo grid */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {allPhotos.map(({ photo, shopName }) => (
+                      <button
+                        key={photo.id}
+                        onClick={() => {
+                          const shop = SHOPS.find((s) => s.name === shopName);
+                          if (shop) setSelectedShop(shop);
+                        }}
+                        className="relative aspect-square rounded-xl overflow-hidden group"
+                      >
+                        <img
+                          src={photo.dataUrl}
+                          alt={shopName}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-choco/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                        <div className="absolute bottom-0 left-0 right-0 p-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <p className="text-[9px] text-white font-medium truncate">{shopName}</p>
+                          <p className="text-[8px] text-white/70">
+                            {new Date(photo.createdAt).toLocaleDateString("ja-JP")}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-16">
+                  <CameraIcon className="w-12 h-12 mx-auto opacity-15 mb-4" />
+                  <h3 className="font-serif text-lg font-semibold text-choco mb-1">
+                    まだ写真がありません
+                  </h3>
+                  <p className="text-xs text-text-dim leading-relaxed">
+                    ショップにチェックインして写真を追加すると<br />
+                    ここにアルバムができます
+                  </p>
                   <button
-                    key={shop.name}
-                    onClick={() => setSelectedShop(shop)}
-                    className="relative aspect-square rounded-xl overflow-hidden group"
+                    onClick={() => setTab("shops")}
+                    className="btn-primary mt-6 text-sm"
                   >
-                    <img
-                      src={photoUrl}
-                      alt={shop.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-choco/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                    <div className="absolute bottom-0 left-0 right-0 p-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <p className="text-[9px] text-white font-medium truncate">{shop.name}</p>
-                    </div>
-                    {store.isVisited(shop.name) && (
-                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-choco-milk/90 flex items-center justify-center">
-                        <CheckIcon className="w-2.5 h-2.5 text-white" />
-                      </div>
-                    )}
+                    ショップを探す
                   </button>
-                );
-              })}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ===== SETTINGS TAB ===== */}
         {tab === "settings" && (
@@ -765,6 +870,7 @@ export default function Home() {
           shop={selectedShop}
           onClose={() => { setSelectedShop(null); refresh(); }}
           onCheckin={handleCheckin}
+          onRefresh={refresh}
         />
       )}
 
