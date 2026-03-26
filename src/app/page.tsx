@@ -623,25 +623,130 @@ export default function Home() {
 
         {/* ===== COLLECTION TAB ===== */}
         {tab === "collection" && (
-          <div className="animate-fade-up text-center py-16">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-cream-deep/50 flex items-center justify-center">
-              <CollectionIcon className="w-8 h-8 text-text-dim" />
+          <div className="animate-fade-up space-y-5">
+            <div>
+              <h2 className="font-serif text-xl font-semibold text-choco mb-1">Collection</h2>
+              <p className="text-xs text-text-dim">各地のショップを制覇してバッジを集めよう</p>
             </div>
-            <h2 className="font-serif text-xl font-semibold text-choco mb-1.5">Collection</h2>
-            <p className="text-sm text-text-dim">各地のショップを制覇してバッジを集めよう</p>
-            <Image src="/regional_badges.png" alt="badges" width={300} height={200} className="mx-auto mt-6 rounded-2xl opacity-80" />
+
+            {/* Overall progress */}
+            <div className="glass-card p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-text-dim">全国制覇</span>
+                <span className="text-xs font-semibold text-choco">
+                  {store.getVisitedCount()} / {SHOPS.length}
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-cream-deep overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-choco-milk to-accent transition-all duration-500"
+                  style={{ width: `${SHOPS.length > 0 ? (store.getVisitedCount() / SHOPS.length) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Region badges grid */}
+            <div className="grid grid-cols-3 gap-3">
+              {(() => {
+                const regions: Record<string, string[]> = {};
+                SHOPS.forEach((s) => {
+                  if (!regions[s.prefecture]) regions[s.prefecture] = [];
+                  regions[s.prefecture].push(s.name);
+                });
+                return Object.entries(regions)
+                  .sort((a, b) => a[0].localeCompare(b[0]))
+                  .map(([pref, names]) => {
+                    const visited = names.filter((n) => store.isVisited(n)).length;
+                    const total = names.length;
+                    const complete = visited === total;
+                    const percent = total > 0 ? (visited / total) * 100 : 0;
+
+                    return (
+                      <div
+                        key={pref}
+                        className={`glass-card p-3 text-center transition-all duration-300 ${
+                          complete ? "ring-2 ring-accent/50" : ""
+                        }`}
+                      >
+                        {/* Badge circle */}
+                        <div className="relative w-12 h-12 mx-auto mb-2">
+                          <svg viewBox="0 0 36 36" className="w-12 h-12 -rotate-90">
+                            <circle
+                              cx="18" cy="18" r="15.5"
+                              fill="none" stroke="#ede5d8" strokeWidth="3"
+                            />
+                            <circle
+                              cx="18" cy="18" r="15.5"
+                              fill="none"
+                              stroke={complete ? "#d4a76a" : "#8b6244"}
+                              strokeWidth="3"
+                              strokeDasharray={`${percent * 0.975} 100`}
+                              strokeLinecap="round"
+                              className="transition-all duration-700"
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            {complete ? (
+                              <CheckIcon className="w-5 h-5 text-accent" />
+                            ) : (
+                              <span className="text-[10px] font-bold text-choco">
+                                {visited}/{total}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-[11px] font-medium text-choco leading-tight">{pref}</p>
+                        {complete && (
+                          <p className="text-[9px] text-accent font-semibold mt-0.5">COMPLETE</p>
+                        )}
+                      </div>
+                    );
+                  });
+              })()}
+            </div>
           </div>
         )}
 
         {/* ===== GALLERY TAB ===== */}
         {tab === "gallery" && (
-          <div className="animate-fade-up text-center py-16">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-cream-deep/50 flex items-center justify-center">
-              <GalleryIcon className="w-8 h-8 text-text-dim" />
+          <div className="animate-fade-up space-y-4">
+            <div>
+              <h2 className="font-serif text-xl font-semibold text-choco mb-1">Gallery</h2>
+              <p className="text-xs text-text-dim">全国のクラフトチョコショップ</p>
             </div>
-            <h2 className="font-serif text-xl font-semibold text-choco mb-1.5">Gallery</h2>
-            <p className="text-sm text-text-dim">チェックインして写真を共有しよう</p>
-            <Image src="/stamps_and_pins.png" alt="stamps" width={300} height={200} className="mx-auto mt-6 rounded-2xl opacity-80" />
+
+            {/* Photo grid from places cache */}
+            <div className="grid grid-cols-3 gap-1.5">
+              {SHOPS.map((shop) => {
+                const place = getCachedPlace(shop.name);
+                const photoUrl = place?.photos?.[0] ? getPhotoUrl(place.photos[0], 200) : "";
+                if (!photoUrl) return null;
+
+                return (
+                  <button
+                    key={shop.name}
+                    onClick={() => setSelectedShop(shop)}
+                    className="relative aspect-square rounded-xl overflow-hidden group"
+                  >
+                    <img
+                      src={photoUrl}
+                      alt={shop.name}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-choco/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    <div className="absolute bottom-0 left-0 right-0 p-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <p className="text-[9px] text-white font-medium truncate">{shop.name}</p>
+                    </div>
+                    {store.isVisited(shop.name) && (
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-choco-milk/90 flex items-center justify-center">
+                        <CheckIcon className="w-2.5 h-2.5 text-white" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
