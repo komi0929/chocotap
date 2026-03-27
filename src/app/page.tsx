@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { SHOPS, type Shop } from "@/lib/shops";
 import { getCachedPlace, getPhotoUrl, loadPlacesCache } from "@/lib/places";
 import * as store from "@/lib/store";
+import * as cloudStore from "@/lib/cloud-store";
+import { useAuth } from "@/lib/useAuth";
 import Splash from "@/components/Splash";
 import AuthPrompt from "@/components/AuthPrompt";
 import JapanMap from "@/components/JapanMap";
@@ -12,7 +14,7 @@ import {
   StarIcon, LocationIcon, ExternalLinkIcon, CloseIcon,
   CheckIcon, ChocolateIcon, UserIcon,
   SearchIcon, SortIcon, ShopListIcon,
-  CameraIcon, ImagePlusIcon, TrashIcon,
+  CameraIcon, ImagePlusIcon, TrashIcon, LogoutIcon,
 } from "@/components/Icons";
 import Image from "next/image";
 
@@ -488,23 +490,42 @@ function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
 }
 
 /* ==================== SETTINGS TAB ==================== */
-function SettingsTab() {
+function SettingsTab({ user, signOut, onLoginClick }: {
+  user: { email?: string; user_metadata?: { full_name?: string; avatar_url?: string } } | null;
+  signOut: () => void;
+  onLoginClick: () => void;
+}) {
   return (
     <div className="space-y-4 animate-fade-up">
       {/* Profile section */}
       <div className="glass-card p-5">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-cream-deep flex items-center justify-center">
-            <UserIcon className="w-6 h-6 text-text-dim" />
+          <div className="w-12 h-12 rounded-full bg-cream-deep flex items-center justify-center overflow-hidden">
+            {user?.user_metadata?.avatar_url ? (
+              <img src={user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <UserIcon className="w-6 h-6 text-text-dim" />
+            )}
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-choco">ゲストユーザー</p>
-            <p className="text-xs text-text-dim">ログインすると記録がクラウドに保存されます</p>
+            <p className="text-sm font-medium text-choco">
+              {user ? (user.user_metadata?.full_name || user.email || "ユーザー") : "ゲストユーザー"}
+            </p>
+            <p className="text-xs text-text-dim">
+              {user ? "クラウドに記録を同期中" : "ログインすると記録がクラウドに保存されます"}
+            </p>
           </div>
         </div>
-        <button className="btn-primary mt-4 text-sm">
-          ログイン / アカウント作成
-        </button>
+        {user ? (
+          <button onClick={signOut} className="btn-soft mt-4 text-sm flex items-center justify-center gap-2">
+            <LogoutIcon className="w-4 h-4" />
+            ログアウト
+          </button>
+        ) : (
+          <button onClick={onLoginClick} className="btn-primary mt-4 text-sm">
+            ログイン / アカウント作成
+          </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -557,6 +578,8 @@ export default function Home() {
   const [selectedPrefecture, setSelectedPrefecture] = useState<string | null>(null);
   const [, forceUpdate] = useState(0);
 
+  const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut } = useAuth();
+
   const refresh = useCallback(() => forceUpdate((n) => n + 1), []);
 
   // Load static places cache on mount
@@ -564,18 +587,35 @@ export default function Home() {
     loadPlacesCache().then(() => refresh());
   }, [refresh]);
 
+  // Sync local data to cloud when user logs in
+  useEffect(() => {
+    if (user) {
+      cloudStore.syncLocalToCloud(user).then(() => refresh());
+    }
+  }, [user, refresh]);
+
   const handleCheckin = (shop: Shop) => {
-    const isLoggedIn = false; // TODO: integrate Supabase auth
-    const isGuest = store.getVisitedCount() > 0; // has used guest mode before
+    const isLoggedIn = !!user;
+    const isGuest = store.getVisitedCount() > 0;
 
     if (!isLoggedIn && !isGuest && !store.isVisited(shop.name)) {
       setPendingCheckin(shop);
-      setSelectedShop(null); // close shop modal first
+      setSelectedShop(null);
       setShowAuth(true);
       return;
     }
 
     store.toggleVisit(shop.name, shop.prefecture);
+
+    // Also sync to cloud if logged in
+    if (isLoggedIn) {
+      if (store.isVisited(shop.name)) {
+        cloudStore.createCheckin(user.id, shop.name, shop.prefecture);
+      } else {
+        cloudStore.deleteCheckin(user.id, shop.name);
+      }
+    }
+
     refresh();
   };
 
@@ -859,7 +899,7 @@ export default function Home() {
         {tab === "settings" && (
           <div className="animate-fade-up">
             <h2 className="font-serif text-xl font-semibold text-choco mb-4">Settings</h2>
-            <SettingsTab />
+            <SettingsTab user={user} signOut={signOut} onLoginClick={() => setShowAuth(true)} />
           </div>
         )}
       </main>
@@ -879,6 +919,8 @@ export default function Home() {
         <AuthPrompt
           onClose={() => { setShowAuth(false); setPendingCheckin(null); }}
           onContinueAsGuest={handleGuestContinue}
+          onSignInWithGoogle={signInWithGoogle}
+          onSignUpWithEmail={signUpWithEmail}
         />
       )}
 
